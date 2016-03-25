@@ -81,7 +81,9 @@
 #endif
 
 #if defined(LOVE_WINDOWS)
+#ifndef LOVE_WINDOWS_UWP
 #	define LOVE_LEGENDARY_CONSOLE_IO_HACK
+#endif // LOVE_WINDOWS_UWP
 #	define NOMINMAX
 #endif
 

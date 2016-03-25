@@ -1019,7 +1019,7 @@ int Window::showMessageBox(const MessageBoxData &data)
 
 void Window::requestAttention(bool continuous)
 {
-#if defined(LOVE_WINDOWS)
+#if defined(LOVE_WINDOWS) && !defined(LOVE_WINDOWS_UWP)
 
 	if (hasFocus())
 		return;

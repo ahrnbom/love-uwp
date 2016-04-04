@@ -197,16 +197,6 @@ int main(int argc, char **argv)
 	argv = hack_argv;
 #endif // LOVE_LEGENDARY_APP_ARGV_HACK
 
-#ifdef LOVE_WINDOWS_UWP
-	if (argc == 0) 
-	{
-		argc = 2;
-		char* lovefile = "game.love";
-		char* args[2] = { "love.exe", lovefile };
-		argv = args;
-	}
-#endif
-
 	if (strcmp(LOVE_VERSION_STRING, love_version()) != 0)
 	{
 		printf("Version mismatch detected!\nLOVE binary is version %s\n"

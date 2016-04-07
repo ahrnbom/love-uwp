@@ -27,6 +27,7 @@
 
 // LOVE
 #include "common/Variant.h"
+#include "common/int.h"
 #include "threads.h"
 
 namespace love
@@ -37,8 +38,6 @@ namespace thread
 class Channel : public love::Object
 {
 // FOR WRAPPER USE ONLY
-friend void retainVariant(Channel *, Variant *);
-friend void releaseVariant(Channel *, Variant *);
 friend int w_Channel_performAtomic(lua_State *);
 
 public:
@@ -48,16 +47,14 @@ public:
 
 	static Channel *getChannel(const std::string &name);
 
-	unsigned long push(Variant *var);
-	void supply(Variant *var); // blocking push
-	Variant *pop();
-	Variant *demand(); // blocking pop
-	Variant *peek();
-	int getCount();
+	uint64 push(const Variant &var);
+	void supply(const Variant &var); // blocking push
+	bool pop(Variant *var);
+	void demand(Variant *var); // blocking pop
+	bool peek(Variant *var);
+	int getCount() const;
+	bool hasRead(uint64 id) const;
 	void clear();
-
-	void retain();
-	void release();
 
 private:
 
@@ -65,14 +62,14 @@ private:
 	void lockMutex();
 	void unlockMutex();
 
-	Mutex *mutex;
-	Conditional *cond;
-	std::queue<Variant *> queue;
+	MutexRef mutex;
+	ConditionalRef cond;
+	std::queue<Variant> queue;
 	bool named;
 	std::string name;
 
-	unsigned long sent;
-	unsigned long received;
+	uint64 sent;
+	uint64 received;
 
 }; // Channel
 

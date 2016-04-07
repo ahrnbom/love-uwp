@@ -107,6 +107,7 @@ Filesystem::Filesystem()
 	, fusedSet(false)
 {
 	requirePath = {"?.lua", "?/init.lua"};
+	cRequirePath = {"??"};
 }
 
 Filesystem::~Filesystem()
@@ -771,6 +772,11 @@ bool Filesystem::areSymlinksEnabled() const
 std::vector<std::string> &Filesystem::getRequirePath()
 {
 	return requirePath;
+}
+
+std::vector<std::string> &Filesystem::getCRequirePath()
+{
+	return cRequirePath;
 }
 
 void Filesystem::allowMountingForPath(const std::string &path)

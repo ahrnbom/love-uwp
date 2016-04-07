@@ -22,34 +22,11 @@
 #include <map>
 #include <string>
 
-namespace
-{
-union uslong
-{
-	unsigned long u;
-	long i;
-};
-
-// target <= current, but semi-wrapsafe, one wrap, anyway
-inline bool past(unsigned int target, unsigned int current)
-{
-	if (target > current)
-		return false;
-	if (target == current)
-		return true;
-
-	uslong t, c;
-	t.u = target;
-	c.u = current;
-
-	return !(t.i < 0 && c.i > 0);
-}
-}
-
 namespace love
 {
 namespace thread
 {
+
 static std::map<std::string, Channel *> namedChannels;
 static Mutex *namedChannelMutex;
 
@@ -58,12 +35,16 @@ Channel *Channel::getChannel(const std::string &name)
 	if (!namedChannelMutex)
 		namedChannelMutex = newMutex();
 
-	Lock l(namedChannelMutex);
-	if (!namedChannels.count(name))
-		namedChannels[name] = new Channel(name);
-	else
-		namedChannels[name]->retain();
+	Lock lock(namedChannelMutex);
 
+	auto it = namedChannels.find(name);
+	if (it != namedChannels.end())
+	{
+		it->second->retain();
+		return it->second;
+	}
+
+	namedChannels[name] = new Channel(name);
 	return namedChannels[name];
 }
 
@@ -72,8 +53,6 @@ Channel::Channel()
 	, sent(0)
 	, received(0)
 {
-	mutex = newMutex();
-	cond = newConditional();
 }
 
 Channel::Channel(const std::string &name)
@@ -82,32 +61,20 @@ Channel::Channel(const std::string &name)
 	, sent(0)
 	, received(0)
 {
-	mutex = newMutex();
-	cond = newConditional();
 }
 
 Channel::~Channel()
 {
-	while (!queue.empty())
-	{
-		queue.front()->release();
-		queue.pop();
-	}
-
-	delete mutex;
-	delete cond;
-
 	if (named)
+	{
+		Lock l(namedChannelMutex);
 		namedChannels.erase(name);
+	}
 }
 
-unsigned long Channel::push(Variant *var)
+uint64 Channel::push(const Variant &var)
 {
-	if (!var)
-		return 0;
-
 	Lock l(mutex);
-	var->retain();
 
 	// Keep a reference to ourselves
 	// if we're non-empty and named.
@@ -120,25 +87,23 @@ unsigned long Channel::push(Variant *var)
 	return ++sent;
 }
 
-void Channel::supply(Variant *var)
+void Channel::supply(const Variant &var)
 {
-	if (!var)
-		return;
-
 	Lock l(mutex);
-	unsigned long id = push(var);
+	uint64 id = push(var);
 
-	while (!past(id, received))
+	while (received < id)
 		cond->wait(mutex);
 }
 
-Variant *Channel::pop()
+bool Channel::pop(Variant *var)
 {
 	Lock l(mutex);
-	if (queue.empty())
-		return 0;
 
-	Variant *var = queue.front();
+	if (queue.empty())
+		return false;
+
+	*var = queue.front();
 	queue.pop();
 
 	received++;
@@ -149,34 +114,38 @@ Variant *Channel::pop()
 	if (named && queue.empty())
 		release();
 
-	return var;
-} // NOTE: Returns a retained Variant
+	return true;
+}
 
-Variant *Channel::demand()
+void Channel::demand(Variant *var)
 {
-	Variant *var;
 	Lock l(mutex);
-	while (!(var = pop()))
+
+	while (!pop(var))
 		cond->wait(mutex);
-
-	return var;
 }
 
-Variant *Channel::peek()
+bool Channel::peek(Variant *var)
 {
 	Lock l(mutex);
-	if (queue.empty())
-		return 0;
 
-	Variant *var = queue.front();
-	var->retain();
-	return var;
+	if (queue.empty())
+		return false;
+
+	*var = queue.front();
+	return true;
 }
 
-int Channel::getCount()
+int Channel::getCount() const
 {
 	Lock l(mutex);
 	return (int) queue.size();
+}
+
+bool Channel::hasRead(uint64 id) const
+{
+	Lock l(mutex);
+	return received >= id;
 }
 
 void Channel::clear()
@@ -188,10 +157,7 @@ void Channel::clear()
 		return;
 
 	while (!queue.empty())
-	{
-		queue.front()->release();
 		queue.pop();
-	}
 
 	// Finish all the supply waits
 	received = sent;
@@ -213,22 +179,5 @@ void Channel::unlockMutex()
 	mutex->unlock();
 }
 
-void Channel::retain()
-{
-	EmptyLock l;
-	if (named)
-		l.setLock(namedChannelMutex);
-
-	Object::retain();
-}
-
-void Channel::release()
-{
-	EmptyLock l;
-	if (named)
-		l.setLock(namedChannelMutex);
-
-	Object::release();
-}
 } // thread
 } // love

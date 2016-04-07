@@ -64,12 +64,12 @@ public:
 	struct ColoredString
 	{
 		std::string str;
-		Color color;
+		Colorf color;
 	};
 
 	struct IndexedColor
 	{
-		Color color;
+		Colorf color;
 		int index;
 	};
 
@@ -195,7 +195,7 @@ public:
 	uint32 getTextureCacheID() const;
 
 	static bool getConstant(const char *in, AlignMode &out);
-	static bool getConstant(AlignMode in, const char  *&out);
+	static bool getConstant(AlignMode in, const char *&out);
 
 	static int fontCount;
 
